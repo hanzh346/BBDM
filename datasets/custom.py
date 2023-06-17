@@ -5,12 +5,30 @@ from torch.utils.data import Dataset
 import torchvision.transforms as transforms
 
 from Register import Registers
-from datasets.base import ImagePathDataset
+from datasets.base import ImagePathDataset, NiftyImagePathDataset
 from datasets.utils import get_image_paths_from_dir
 from PIL import Image
 import cv2
 import os
 
+@Registers.datasets.register_with_name('Nifty')
+class CustomAlignedDataset(Dataset):
+    def __init__(self, dataset_config, stage='train'):
+        super().__init__()
+        self.image_size = (dataset_config.image_size, dataset_config.image_size)
+        image_paths_ori = get_image_paths_from_dir(os.path.join(dataset_config.dataset_path, f'{stage}/B'))
+        image_paths_cond = get_image_paths_from_dir(os.path.join(dataset_config.dataset_path, f'{stage}/A'))
+        self.flip = dataset_config.flip if stage == 'train' else False
+        self.to_normal = dataset_config.to_normal
+
+        self.imgs_ori = NiftyImagePathDataset(image_paths_ori, self.image_size, flip=self.flip, to_normal=self.to_normal)
+        self.imgs_cond = NiftyImagePathDataset(image_paths_cond, self.image_size, flip=self.flip, to_normal=self.to_normal)
+
+    def __len__(self):
+        return len(self.imgs_ori)
+
+    def __getitem__(self, i):
+        return self.imgs_ori[i], self.imgs_cond[i]
 
 @Registers.datasets.register_with_name('custom_single')
 class CustomSingleDataset(Dataset):
@@ -22,7 +40,7 @@ class CustomSingleDataset(Dataset):
         self.to_normal = dataset_config.to_normal
 
         self.imgs = ImagePathDataset(image_paths, self.image_size, flip=self.flip, to_normal=self.to_normal)
-
+        print(self.imgs)
     def __len__(self):
         return len(self.imgs)
 
